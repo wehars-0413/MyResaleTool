@@ -1,6 +1,7 @@
 import sys
 import os
 import csv
+import settings
 from datetime import datetime
 
 ########################################################################
@@ -18,21 +19,38 @@ def calc_profit(price,cost_price, shipping, fee_rate):
 def export_result_csv(data: dict):
   #outputディレクトリがなければ作成
   os.makedirs("output", exist_ok=True)
-  #ファイル名生成
-  timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-  filename = f"output/{timestamp}.csv"
+ 
+  #時刻ごとにファイル名生成する場合の処理
+  #timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+  #filename = f"output/{timestamp}.csv"
 
-  with open(filename, mode="w", newline="", encoding="utf-8") as f:
+  #ファイル名を固定とする場合の処理
+  filename = "output/output.csv"
+
+  #新規書き込みw,追記モードaで使い分け
+  with open(filename, mode="a", newline="", encoding="utf-8") as f:
     write = csv.DictWriter(f, fieldnames=data.keys())
-    write.writeheader()
+    #現在ファイル名を固定としているため、csvのカラムを記述する処理はコメントアウト
+    #write.writeheader()
     write.writerow(data)
   print(f"CSV出力完了:{filename}")
   return
 
+#csvファイル読み込み関数
+#現在未使用
+def read_property(filepath):
+  with open(filepath,encoding="utf-8") as f:
+    reder = csv.DictReader(f)
+    data = list(reder)
+  return data
+
+
 def main():
   #コマンドラインの引数を取得(配列の0番目は実行ファイル名になる)
   args = sys.argv
-  fee_rate = 0.1
+
+  #手数料の設定(settings.pyからfee_rateの値を取得)
+  fee_rate =  settings.fee_rate
 
   if len(args) == 4:
     try:
