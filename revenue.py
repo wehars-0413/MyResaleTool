@@ -30,6 +30,9 @@ def export_result_csv(data: dict):
   #新規書き込みw,追記モードaで使い分け
   with open(filename, mode="a", newline="", encoding="utf-8") as f:
     write = csv.DictWriter(f, fieldnames=data.keys())
+    #見出し行を付ける処理
+    if os.path.getsize(filename) == 0:
+      write.writeheader()
     #現在ファイル名を固定としているため、csvのカラムを記述する処理はコメントアウト
     #write.writeheader()
     write.writerow(data)
@@ -37,13 +40,67 @@ def export_result_csv(data: dict):
   return
 
 #csvファイル読み込み関数
-#現在未使用
-def read_property(filepath):
+def input_csv(filepath):
   with open(filepath,encoding="utf-8") as f:
-    reder = csv.DictReader(f)
-    data = list(reder)
+    reader = csv.DictReader(f)
+    
+    #見出し行がない場合の処理
+    #reader = csv.DictReader(f, fieldnames=['商品名', '価格', '原価', '送料'])
+    data = list(reader)
+  
+  #TODO: デバッグ用。CSV処理安定後に削除
+  print(data[1])
+  print(data[1]['商品名'])
   return data
 
+def revenue(name, price, cost_price, shipping,fee_rate):
+  #利益の計算
+  profit = int(calc_profit(price, cost_price, shipping, fee_rate))
+  #利益率(原価基準)
+  #小数点以下を切り捨ての為int型へ
+  profit_b = int(profit / cost_price * 100)
+  #利益率(売価基準)
+  #小数点以下を切り捨ての為int型へ
+  profit_s = int(profit / price * 100)
+  #判定用
+  judge = "未判定"
+  print("価格:", price)
+  print("原価:", cost_price)
+  print("送料:", shipping)
+  print("手数料:", int(price * fee_rate))
+  print("利益:", profit)
+  if cost_price  > 0:
+    print("利益率(原価基準):", profit_b,"%")
+  else:
+    print("利益率(原価基準):計算不可")
+  
+  print("利益率(売価基準):",  profit_s,"%")
+
+  if profit < 0:
+    judge = "赤字です"
+  elif profit < 300:
+    judge = "利益が少なめです。(要塞検討)"
+  else:
+    judge = "出品候補です"
+  print("判定:",judge)
+
+  #上記出力結果をファイルに書き込む
+  data = {
+    "商品名": name,
+    "価格": price,
+    "原価": cost_price,
+    "送料": shipping,
+    "手数料": int(price * fee_rate),
+    "利益": profit,
+    "利益率(原価基準)": profit_b,
+    "利益率(売価基準)": profit_s,
+    "判定": judge,
+    "日時": datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
+  }
+  #csvファイルへの書き込み
+  export_result_csv(data)
+  
+  return
 
 def main():
   #コマンドラインの引数を取得(配列の0番目は実行ファイル名になる)
@@ -51,66 +108,26 @@ def main():
 
   #手数料の設定(settings.pyからfee_rateの値を取得)
   fee_rate =  settings.fee_rate
+  try:
+    if len(args) == 2:
+      #1つ目の引数にファイル名があるならそのファイルを読み込んで実行
+      input_data = input_csv(args[1]) 
+      for i in input_data:
+      #関数実装したものを実行
+        revenue(i['商品名'],int(i['価格']), int(i['原価']),int(i['送料']),fee_rate)
+      
+  #引数にファイル名がない場合、inputで入力処理をさせる
+    else:
+      print("売買情報の入力を行ってください。")
+      name = input("売買予定の商品名を入力してください。(name)>>")
+      price = int(input("売買予定の商品の価格を入力してください。(price)＞>"))
+      cost_price = int(input("購入予定の商品の価格を入力してください。(cost_price)＞>"))
+      shipping = int(input("購入予定の商品の送料を入力してください。(shipping)＞>"))
+      #関数実装したものを実行
+      revenue(name ,price, cost_price,shipping,fee_rate)
 
-  if len(args) == 4:
-    try:
-      #1つ目の引数を価格
-      price = int(args[1])
-      #2つ目の引数を原価
-      cost_price = int(args[2])
-      #3つ目の引数を送料
-      shipping = int(args[3])
-      #利益の計算
-      profit = int(calc_profit(price, cost_price, shipping, fee_rate))
-      #利益率(原価基準)
-      #小数点以下を切り捨ての為int型へ
-      profit_b = int(profit / cost_price * 100)
-      #利益率(売価基準)
-      #小数点以下を切り捨ての為int型へ
-      profit_s = int(profit / price * 100)
-      #判定用
-      judge = "未判定"
-
-      print("価格:", price)
-      print("原価:", cost_price)
-      print("送料:", shipping)
-      print("手数料:", int(price * fee_rate))
-      print("利益:", profit)
-      if cost_price  > 0:
-        print("利益率(原価基準):", profit_b,"%")
-      else:
-        print("利益率(原価基準):計算不可")
-      print("利益率(売価基準):",  profit_s,"%")
-
-      if profit < 0:
-        judge = "赤字です"
-      elif profit < 300:
-        judge = "利益が少なめです。(要塞検討)"
-      else:
-        judge = "出品候補です"
-      print("判定:",judge)
-
-    #上記出力結果をファイルに書き込む
-      data = {
-        "価格": price,
-        "原価": cost_price,
-        "送料": shipping,
-        "手数料": int(price * fee_rate),
-        "利益": profit,
-        "利益率(原価基準)": profit_b,
-        "利益率(売価基準)": profit_s,
-        "判定": judge,
-        "日時": datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
-      }
-      #csvファイルへの書き込み
-      export_result_csv(data)
-
-    except ValueError:
-      print("数値を入力してください")
-      return
-
-  else:
-    print("引数が不正です。")
-    print("例 python revenue.py 3000 2000 750")
+  except ValueError:
+    print("入力値が違います。")
+    return
 
 main()
